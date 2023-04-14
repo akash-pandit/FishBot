@@ -46,7 +46,7 @@ def is_trusted(interaction: discord.Interaction) -> bool:
 
 
 @client.tree.command()
-async def add_trusted(interaction: discord.Interaction, user_id: int) -> None:
+async def add_trusted(interaction: discord.Interaction, user_id: str) -> None:
     """adds a user to the trusted list"""
     if not is_author(interaction):
         await interaction.response.send_message("You don't have permission to run this command.")
@@ -61,14 +61,14 @@ async def add_trusted(interaction: discord.Interaction, user_id: int) -> None:
     
 
 @client.tree.command()
-async def remove_trusted(interaction: discord.Interaction, user_id: int) -> None:
+async def remove_trusted(interaction: discord.Interaction, user_id: str) -> None:
     if not is_author(interaction):
         await interaction.response.send_message("You don't have permission to run this command.")
     elif not is_trusted(interaction):
         await interaction.response.send_message("This user is not trusted.")
     else:
         trusted = set(eval(os.getenv('TRUSTED')))
-        trusted.remove(int(interaction.user.id))
+        trusted.remove(int(user_id))
         set_key('.env', 'TRUSTED', str(trusted))
         interaction.response.send_message("Success")
 
