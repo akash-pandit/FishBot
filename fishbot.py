@@ -1,3 +1,4 @@
+import json
 import discord
 import os
 from dotenv import load_dotenv, set_key
@@ -5,10 +6,10 @@ from random import randint
 
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-load_dotenv()
+load_dotenv(override=True)
 
 bot_token = str(os.getenv('TOKEN'))
-MY_GUILD = discord.Object(id="1014601291755954236")
+MY_GUILD = discord.Object(id="772873566923784264")
 
 
 class MyClient(discord.Client):
@@ -25,8 +26,13 @@ intents.message_content = True
 client = MyClient(intents=intents)
 
 @client.event
-async def on_ready():
+async def on_ready() -> None:
     print(f'{client.user} is ready to rumble!')
+
+
+def get_ext_vars() -> dict:
+    with open('external_vars.json', 'r') as file:
+        return dict(json.load(file))
 
 """
 BOT LOADING - End -------------------------------------------------------------------------------------------
@@ -40,9 +46,14 @@ def is_author(interaction: discord.Interaction) -> bool:
     return interaction.user.id == int(os.getenv('AUTHOR_ID'))
 
 
-def is_trusted(interaction: discord.Interaction) -> bool:
-    """checks if the user is a bot trusted user"""
-    return str(interaction.user.id) in os.getenv('TRUSTED') or is_author(interaction)
+def is_user_trusted(interaction: discord.Interaction) -> bool:
+    """checks if the user is a bot trusted user using a discord interaction input"""
+    return interaction.user.id in get_ext_vars()['TRUSTED'] or is_author(interaction)
+
+
+def is_id_trusted(user_id: int) -> bool:  
+    """checks if the user is a bot trusted user using an integer input (the user ID)"""
+    return int(user_id) in get_ext_vars()['TRUSTED'] or user_id == int(os.getenv('AUTHOR_ID'))
 
 
 @client.tree.command()
@@ -50,27 +61,32 @@ async def add_trusted(interaction: discord.Interaction, user_id: str) -> None:
     """adds a user to the trusted list"""
     if not is_author(interaction):
         await interaction.response.send_message("You don't have permission to run this command.")
-    elif is_trusted(interaction):
-        print(f'{interaction.user.id} already in TRUSTED')
+    elif is_id_trusted(int(user_id)):
+        print(f'Trusting Failed: {user_id} already in TRUSTED')
         await interaction.response.send_message("This user is already trusted.")
     else:
-        trusted = list(eval(os.getenv('TRUSTED')))
-        trusted.append(int(user_id))
-        set_key('.env', 'TRUSTED', str(trusted))
-        interaction.response.send_message("Success")
+        jsonfile = get_ext_vars()
+        jsonfile['TRUSTED'].append(int(user_id))
+        with open('external_vars.json', 'w') as file:
+            json.dump(jsonfile, file, indent=4)
+        await interaction.response.send_message("Successfully trusted a user.")
+        print(f'User {user_id} has been trusted.')
     
 
 @client.tree.command()
 async def remove_trusted(interaction: discord.Interaction, user_id: str) -> None:
     if not is_author(interaction):
         await interaction.response.send_message("You don't have permission to run this command.")
-    elif not is_trusted(interaction):
+    elif not is_id_trusted(user_id):
+        print(f'Removal Failed: {user_id} was not in TRUSTED')
         await interaction.response.send_message("This user is not trusted.")
     else:
-        trusted = set(eval(os.getenv('TRUSTED')))
-        trusted.remove(int(user_id))
-        set_key('.env', 'TRUSTED', str(trusted))
-        interaction.response.send_message("Success")
+        jsonfile = get_ext_vars()
+        jsonfile['TRUSTED'].remove(int(user_id))
+        with open('external_vars.json', 'w') as file:
+            json.dump(jsonfile, file, indent=4)
+        await interaction.response.send_message("Successfully revoked user's trusted status.")
+        print(f'User {user_id} has been un-trusted')
 
 
 """
@@ -84,16 +100,18 @@ def gen_qotd_obj() -> list:
     with open('qotd.txt', 'r') as qotdfile:
         return [line[:-1] for line in qotdfile.readlines()]
 
-#TODO: when resetting qotd, /qotd still returns old qotd
+
 @client.tree.command(
         name='qotd',
         description='Output the question of the day'
         )
 async def qotd(interaction) -> None:
     """Returns the Question of the Day"""
-    await interaction.response.send_message(f'Current QOTD:\n**{os.getenv("QOTD")}**')
+    qotd_ = get_ext_vars()['QOTD']
+    await interaction.response.send_message(f'Current QOTD:\n**{qotd_}**')
 
 
+#TODO: qotd -> json
 @client.tree.command(
         description='Set the QOTD channel to the current channel'
         )
@@ -109,12 +127,13 @@ async def setqotdchannel(interaction: discord.Interaction) -> None:
     print(f"{interaction.user.name} set the QOTD channel to #{client.get_channel(int(channel))} (id: {channel})")
 
 
+# TODO: switch from .env to json
 @client.tree.command(
         description='currently dummy command, will add a QOTD to the list of questions'
         )
 async def addqotd(interaction: discord.Interaction, question: str) -> None:
     """Add a question to the QOTD list"""
-    if is_trusted(interaction):
+    if is_user_trusted(interaction):
         questions = gen_qotd_obj()
         questions.append(question)
         [q+'\n' for q in questions]
@@ -125,11 +144,12 @@ async def addqotd(interaction: discord.Interaction, question: str) -> None:
         await interaction.response.send_message(f'Question Added: {question}\n(A question wasn\'t added this is a placeholder)')
 
 
+# TODO: .env -> json
 @client.tree.command(
         description="Reset the QOTD"
         )
 async def resetqotd(interaction: discord.Interaction) -> None:
-    if not is_trusted(interaction):
+    if not is_user_trusted(interaction):
         await interaction.response.send_message("You do not have permission to run this command.")
         return
 
@@ -142,11 +162,12 @@ async def resetqotd(interaction: discord.Interaction) -> None:
     await interaction.response.send_message(f"QOTD has been reset. New QOTD:\n**{questions[qotd_ind]}**")
 
 
+#TODO: .env -> json
 @client.tree.command(
         description='Deletes the current QOTD and resets it.'
 )
 async def removeqotd(interaction: discord.Interaction) -> None:
-    if not is_trusted(interaction):
+    if not is_user_trusted(interaction):
         await interaction.response.send_message("You do not have permission to run this command.")
     else:
         questions = gen_qotd_obj()
