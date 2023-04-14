@@ -186,6 +186,11 @@ async def tbd(interaction):
     await interaction.response.send_message(msg)
 
 
+@client.tree.command(description='Returns a link to this bot\'s source code in its github repository')
+async def src(interaction):
+    await interaction.response.send_message('**View my source code here!**\nhttps://github.com/akash-pandit/FishBot')
+
+
 @client.tree.command(description='shuts down the bot')
 async def exit(interaction: discord.Interaction):
     if is_author(interaction):  # checks if the user is me (author), only I can run this
