@@ -155,7 +155,7 @@ async def setqotdchannel(interaction: discord.Interaction) -> None:
 
 
 @client.tree.command(
-        description='Adds the given question to the QOTD list, sets that as the current QOTD if setqotd is true.'
+        description='Adds the given question to the QOTD list, sets that as the current QOTD if setqotd is True.'
         )
 async def addqotd(interaction: discord.Interaction, question: str, setqotd: bool) -> None:
     """Add a question to the QOTD list"""
