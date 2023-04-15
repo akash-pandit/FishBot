@@ -38,6 +38,9 @@ def get_ext_vars() -> dict:
     with open('external_vars.json', 'r') as file:
         return dict(json.load(file))
 
+
+def get_guilds() -> list:
+    return 
 """
 BOT LOADING - End -------------------------------------------------------------------------------------------
 
@@ -47,7 +50,7 @@ TRUSTED Commands - Begin -------------------------------------------------------
 """
 def is_author(interaction: discord.Interaction) -> bool:
     """checks if the user is the author"""
-
+    
     return interaction.user.id == int(os.getenv('AUTHOR_ID'))
 
 
@@ -88,7 +91,7 @@ async def add_trusted(interaction: discord.Interaction, user_id: str) -> None:
 @client.tree.command()
 async def remove_trusted(interaction: discord.Interaction, user_id: str) -> None:
     """Removes a user's trusted status, this command can only be run by the author."""
-
+        
     if not is_author(interaction): # catches non-author users running command
         print(f'Unauthorized user {interaction.user} ({interaction.user.id}) attempted running /remove_trusted.')  # log to stdout
         await interaction.response.send_message("You don't have permission to run this command.", ephemeral=True)  # log to discord
@@ -145,7 +148,8 @@ async def setqotdchannel(interaction: discord.Interaction) -> None:
     else:  # execute as planned
         channel = interaction.channel_id  # channel: the id of the channel in which the interaction occured
         jsonfile = get_ext_vars()  # getting the contents of external_vars.json as a dict jsonfile
-        jsonfile['QOTD_CHANNEL'] = channel  # setting the new qotd channel in jsonfile
+        jsonfile['QOTD_CHANNELS'][str(interaction.guild_id)] = channel
+        
         channel_name = client.get_channel(channel)  # getting the name associated with channel (a channel id) as channel_name
 
         with open('external_vars.json', 'w') as file:
@@ -205,7 +209,7 @@ async def resetqotd(interaction: discord.Interaction) -> None:
         with open('external_vars.json', 'w') as file:
             json.dump(jsonfile, file, indent=4)  # rewrite the json file with the updated jsonfile dict object
         
-        print(f"User {interaction.user} ({interaction.user.id}) reset the QOTD on {interaction.guild} ({interaction.guild.id})")
+        print(f"User {interaction.user} ({interaction.user.id}) reset the QOTD on {interaction.guild} ({interaction.guild_id})")
         # ^ log to stdout
         await interaction.response.send_message(f"QOTD has been reset. New QOTD:\n**{questions[qotd_ind]}**")  # log to discord
 
@@ -242,10 +246,24 @@ async def removeqotd(interaction: discord.Interaction) -> None:
     )
 async def getqotdchannel(interaction: discord.Interaction) -> None:
     """Get current designated QOTD channel."""
-
+    
     jsonfile = get_ext_vars()  # load in external_vars.json as python dict
-    channel_name = client.get_channel(jsonfile['QOTD_CHANNEL'])  # get discord channel name
-    await interaction.response.send_message(f"This server's QOTD channel is **#{channel_name}**.", ephemeral=True)
+    guild = str(interaction.guild_id)
+    if guild not in jsonfile['QOTD_CHANNELS'].keys():
+        jsonfile['QOTD_CHANNELS'][guild] = -1
+    
+    if jsonfile['QOTD_CHANNELS'][guild] == -1:
+        await interaction.response.send_message(f"This server has not yet been given a QOTD channel." + 
+                                                " Please reassign or have staff assign a new QOTD channel with " +
+                                                "**/setqotdchannel** in the channel of choice.", ephemeral=True)
+        return
+    try:
+        channel_name = client.get_channel(jsonfile['QOTD_CHANNELS'][guild])  # get discord channel name
+        await interaction.response.send_message(f"This server's QOTD channel is **#{channel_name}**.", ephemeral=True)
+    except KeyError:
+        await interaction.response.send_message(f"This server's designated QOTD channel does not seem to exist, " +
+                                                "please reassign or have staff reassign a new QOTD channel with " +
+                                                "**/setqotdchannel** in the channel of choice.", ephemeral=True)
     # log discord
 
 
@@ -283,7 +301,7 @@ async def tbd(interaction: discord.Interaction) -> None:
     description='Returns a link to this bot\'s source code in its github repository on select servers.'
     )
 async def src(interaction: discord.Interaction) -> None:
-    if interaction.guild.id == get_ext_vars()['SanDeezNuts']:  # checks if the server is the select server
+    if interaction.guild_id == get_ext_vars()['SanDeezNuts']:  # checks if the server is the select server
         await interaction.response.send_message('**View my source code here!**\nhttps://github.com/akash-pandit/FishBot')  # log discord
     else:  # not a select server
         await interaction.response.send_message("This command is not supported in this server.", ephemeral=True)  # log discord
