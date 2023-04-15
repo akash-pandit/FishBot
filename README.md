@@ -1,8 +1,8 @@
 # FishBot
 
-FishBot is a 'pilot' discord bot for me to learn how to write a bot through hands-on experience.
+FishBot is a 'pilot' [discord bot](https://discord.com/developers/docs/topics/oauth2#bot-vs-user-accounts) for me to learn how to write a bot through hands-on experience.
 
-This bot is written in python using discord's discord.py library.
+This bot is written in python using the [discord.py library](https://discordpy.readthedocs.io/en/stable/).
 
 What I have learned so far through this project:
 - handling environment variables in python
