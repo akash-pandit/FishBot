@@ -1,14 +1,14 @@
 import json
 import discord
 import os
-from dotenv import load_dotenv, set_key
+from dotenv import load_dotenv
 from random import randint
 
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-load_dotenv(override=True)
+os.chdir(os.path.dirname(os.path.abspath(__file__)))  # set cwd to location of this file
+load_dotenv()
 
-bot_token = str(os.getenv('TOKEN'))
+bot_token = str(os.getenv('TOKEN'))  # retrieve bot token to run bot
 MY_GUILD = discord.Object(id="1014601291755954236")
 
 
@@ -27,10 +27,14 @@ client = MyClient(intents=intents)
 
 @client.event
 async def on_ready() -> None:
-    print(f'{client.user} is ready to rumble!')
+    """Initialization message to StdOut telling me that the bot is online."""
+
+    print(f'{client.user} is ready to rumble!')  # log stdout
 
 
 def get_ext_vars() -> dict:
+    """Reads external_vars.json and returns its contents as a python dict"""
+
     with open('external_vars.json', 'r') as file:
         return dict(json.load(file))
 
@@ -43,16 +47,19 @@ TRUSTED Commands - Begin -------------------------------------------------------
 """
 def is_author(interaction: discord.Interaction) -> bool:
     """checks if the user is the author"""
+
     return interaction.user.id == int(os.getenv('AUTHOR_ID'))
 
 
 def is_user_trusted(interaction: discord.Interaction) -> bool:
     """checks if the user is a bot trusted user using a discord interaction input"""
+
     return interaction.user.id in get_ext_vars()['TRUSTED'] or is_author(interaction)
 
 
 def is_id_trusted(user_id: int) -> bool:  
     """checks if the user is a bot trusted user using an integer input (the user ID)"""
+
     return int(user_id) in get_ext_vars()['TRUSTED'] or user_id == int(os.getenv('AUTHOR_ID'))
 
 
@@ -108,8 +115,10 @@ TRUSTED Commands - End ---------------------------------------------------------
 QOTD Commands - Begin ---------------------------------------------------------------------------------------
 """
 def gen_qotd_obj() -> list:
+    """return a list of QOTDs from qotd.txt"""
+
     with open('qotd.txt', 'r') as qotdfile:
-        return [line[:-1] for line in qotdfile.readlines()]
+        return [line[:-1] for line in qotdfile.readlines()] 
 
 
 @client.tree.command(
@@ -118,8 +127,9 @@ def gen_qotd_obj() -> list:
         )
 async def qotd(interaction) -> None:
     """Returns the Question of the Day"""
-    qotd_ = get_ext_vars()['QOTD']
-    await interaction.response.send_message(f'Current QOTD:\n**{qotd_}**')
+
+    qotd_ = get_ext_vars()['QOTD']  # get qotd from external_vars.json
+    await interaction.response.send_message(f'Current QOTD:\n**{qotd_}**')  #log discord
 
 
 @client.tree.command(
@@ -147,7 +157,7 @@ async def setqotdchannel(interaction: discord.Interaction) -> None:
 @client.tree.command(
         description='currently dummy command, will add a QOTD to the list of questions'
         )
-async def addqotd(interaction: discord.Interaction, question: str, setqotd: bool = False) -> None:
+async def addqotd(interaction: discord.Interaction, question: str, setqotd: bool) -> None:
     """Add a question to the QOTD list"""
 
     if not is_user_trusted(interaction):  # handles unauthorized users
@@ -157,7 +167,7 @@ async def addqotd(interaction: discord.Interaction, question: str, setqotd: bool
     else:  # executes as planned
         questions = gen_qotd_obj()  # retrieve list of questions from qotd.txt
         questions.append(question)  # add question to questions
-        [q+'\n' for q in questions]  # give each question a newline character in prep for rewriting qotd.txt
+        questions = [q+'\n' for q in questions]  # give each question a newline character in prep for rewriting qotd.txt
 
         with open('qotd.txt', 'w') as qotdfile:
             qotdfile.writelines(questions)  # rewrites qotd.txt with new question
@@ -171,7 +181,7 @@ async def addqotd(interaction: discord.Interaction, question: str, setqotd: bool
             new_qotd_str = '\nQOTD set to the above question.'  # update new_qotd_str
 
         print(f'User {interaction.user} ({interaction.user.id}) added QOTD \"{question}\"')  # log stdout
-        await interaction.response.send_message(f'Question Added to QOTD List: \n{question}' + new_qotd_str)
+        await interaction.response.send_message(f'Question Added to QOTD List: \n**{question}**' + new_qotd_str)
         # log discord
 
 
@@ -179,15 +189,18 @@ async def addqotd(interaction: discord.Interaction, question: str, setqotd: bool
         description="Reset the QOTD"
         )
 async def resetqotd(interaction: discord.Interaction) -> None:
-    if not is_user_trusted(interaction):
+    """Reselects a QOTD randomly from a pool of questions."""
+
+    if not is_user_trusted(interaction):  # handles non-trusted users
         await interaction.response.send_message("You do not have permission to run this command.", ephemeral=True)
+        # log stdout
     else:
-        jsonfile = get_ext_vars()
-        questions = gen_qotd_obj()
-        qotd_ind = randint(0, len(questions)-1)
-        while questions[qotd_ind] == jsonfile['QOTD']:
-            qotd_ind = randint(0, len(questions)-1)
-        jsonfile['QOTD'] = questions[qotd_ind]
+        jsonfile = get_ext_vars()  # generates dict object from external_vars.json
+        questions = gen_qotd_obj()  # gets list of qotds
+        qotd_ind = randint(0, len(questions)-1)  # randomly selects new qotd index
+        while questions[qotd_ind] == jsonfile['QOTD']:  # handles chance for same back to back qotd
+            qotd_ind = randint(0, len(questions)-1)  # randomly selects new qotd index
+        jsonfile['QOTD'] = questions[qotd_ind]  # updates qotd in jsonfile dict obj
 
         with open('external_vars.json', 'w') as file:
             json.dump(jsonfile, file, indent=4)  # rewrite the json file with the updated jsonfile dict object
@@ -201,28 +214,35 @@ async def resetqotd(interaction: discord.Interaction) -> None:
         description='Deletes the current QOTD and resets it.'
 )
 async def removeqotd(interaction: discord.Interaction) -> None:
-    if not is_user_trusted(interaction):
-        await interaction.response.send_message("You do not have permission to run this command.", ephemeral=True)
-    else:
-        jsonfile = get_ext_vars()
-        questions = gen_qotd_obj()
-        old_qotd = jsonfile['QOTD']
-        questions.remove(old_qotd)
+    """Removes the current QOTD from the pool of QOTDs and randomly selects a new QOTD."""
 
-        qotd_ind = randint(0, len(questions)-1)
-        jsonfile['QOTD'] = questions[qotd_ind]
+    if not is_user_trusted(interaction):  # handles non-trusted users
+        await interaction.response.send_message("You do not have permission to run this command.", ephemeral=True)
+        # log discord
+    else:
+        jsonfile = get_ext_vars()  # get python dict from external_vars.json
+        questions = gen_qotd_obj()  # get list of qotds
+        old_qotd = jsonfile['QOTD']  # save qotd to be removed in dummy var
+        questions.remove(old_qotd)  # remove old qotd from pool of questions
+
+        qotd_ind = randint(0, len(questions)-1)  # randomly select new qotd index
+        jsonfile['QOTD'] = questions[qotd_ind]  # update python dict with new qotd
         
         with open("external_vars.json", 'w') as file:
-            json.dump(jsonfile, file, indent=4)
+            json.dump(jsonfile, file, indent=4)  # update external_vars.json with new qotd using python obj jsonfile
 
-        print(f'User {interaction.user} ({interaction.user.id}) removed qotd \"{old_qotd}\".')
+        print(f'User {interaction.user} ({interaction.user.id}) removed qotd \"{old_qotd}\".')  # log stdout
         await interaction.response.send_message(f"QOTD Removed:\n**{old_qotd}**\nNew QOTD:\n**{questions[qotd_ind]}**")
+        # log discord
 
 
+#TODO: add handling for when QOTD channel is not selected
 @client.tree.command(
     description="Returns the current QOTD channel."
     )
 async def getqotdchannel(interaction: discord.Interaction) -> None:
+    """Get current designated QOTD channel."""
+
     jsonfile = get_ext_vars()  # load in external_vars.json as python dict
     channel_name = client.get_channel(jsonfile['QOTD_CHANNEL'])  # get discord channel name
     await interaction.response.send_message(f"This server's QOTD channel is **#{channel_name}**.", ephemeral=True)
@@ -233,18 +253,22 @@ async def getqotdchannel(interaction: discord.Interaction) -> None:
 QOTD Commands - End ------------------------------------------------------------------------------------------
 """
 
-@client.tree.command(description='jerma gif')
-async def jerma(interaction):
+@client.tree.command(
+    description='jerma gif'
+    )
+async def jerma(interaction: discord.Interaction) -> None:
     await interaction.response.defer()  # dummy cmd in case it's taking a while to load
-    await interaction.followup.send('https://media.tenor.com/jOwV06mYU2YAAAAd/jerma-discord.gif')
+    await interaction.followup.send('https://media.tenor.com/jOwV06mYU2YAAAAd/jerma-discord.gif')  # log discord
     # loads gif of content creator jerma eating a sandwich
 
 
-@client.tree.command(description='Lists things that are WIP or planned')
-async def tbd(interaction):
+@client.tree.command(
+    description='Lists things that are WIP or planned'
+    )
+async def tbd(interaction: discord.Interaction) -> None:
     tbd_list = (
-        "Add functionality for setting QOTD, exists as python func but not added as cmd w/ perms",
         "Add functionality for generating and outputting new QOTD at specified system time",
+        "Allow QOTD to function in different servers at the same time by storing qotd channel ids in a hash map"
         "Add command to change bot's nickname to string of choice",
         "Allow /jerma to cycle between a selection of GIFs",
         "Create a /help command with a list of all commands, parameters, and functionalities"
@@ -252,16 +276,23 @@ async def tbd(interaction):
     msg = '**Things to be done:**'
     for i in tbd_list:
         msg += f'\n- {i}'  # add the contents of tbd list to msg
-    await interaction.response.send_message(msg)
+    await interaction.response.send_message(msg, ephemeral=True)
 
 
-@client.tree.command(description='Returns a link to this bot\'s source code in its github repository')
-async def src(interaction):
-    await interaction.response.send_message('**View my source code here!**\nhttps://github.com/akash-pandit/FishBot')
+@client.tree.command(
+    description='Returns a link to this bot\'s source code in its github repository on select servers.'
+    )
+async def src(interaction: discord.Interaction) -> None:
+    if interaction.guild.id == get_ext_vars()['SanDeezNuts']:  # checks if the server is the select server
+        await interaction.response.send_message('**View my source code here!**\nhttps://github.com/akash-pandit/FishBot')  # log discord
+    else:  # not a select server
+        await interaction.response.send_message("This command is not supported in this server.", ephemeral=True)  # log discord
 
 
-@client.tree.command(description='shuts down the bot')
-async def exit(interaction: discord.Interaction):
+@client.tree.command(
+    description='Kills the bot process, only the author can run this command.'
+    )
+async def exit(interaction: discord.Interaction) -> None:
     if is_author(interaction):  # checks if the user is me (author), only I can run this
         await interaction.response.send_message(':zzz: I\'m feeling sleepy...')  # sends a little status message
         quit("Bot execution shut down by author")  # kills the script w/ string exit code
